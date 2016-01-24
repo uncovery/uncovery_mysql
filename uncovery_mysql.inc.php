@@ -46,10 +46,38 @@ function umc_mysql_query($sql, $close = false) {
     $error = $UNC_DB['link']->errorInfo();
     if (!is_null($error[2])) {
         XMPP_ERROR_trigger("MySQL Query Error: '$sql' : " . $error[2]);
+        return false;
     } else if ($close) {
         $rst->closeCursor();
+        return true;
     } else {
         return $rst;
+    }
+}
+
+/**
+ * Replacement for mysql_query
+ * specific for DELETE, UPDATE and INSERT queries. returns affected rows
+ *
+ * can close the query if needed, otherwise returns result
+ *
+ * @global PDO $UMC_DB
+ * @param string $sql
+ * @param boolean $close
+ * @return type
+ */
+function umc_mysql_execute_query($sql) {
+    global $UNC_DB;
+    XMPP_ERROR_trace(__FUNCTION__, func_get_args());
+    $obj = $UNC_DB->prepare($sql);
+    $obj->execute();
+    $error = $obj->errorInfo();
+    if (!is_null($error[2])) {
+        XMPP_ERROR_trigger("MySQL Query Error: '$sql' : " . $error[2]);
+        return false;
+    } else {
+        $count = $obj->rowCount();
+        return $count;
     }
 }
 
