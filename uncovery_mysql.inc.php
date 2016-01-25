@@ -69,7 +69,7 @@ function umc_mysql_query($sql, $close = false) {
 function umc_mysql_execute_query($sql) {
     global $UNC_DB;
     XMPP_ERROR_trace(__FUNCTION__, func_get_args());
-    $obj = $UNC_DB->prepare($sql);
+    $obj = $UNC_DB['link']->prepare($sql);
     $obj->execute();
     $error = $obj->errorInfo();
     if (!is_null($error[2])) {
