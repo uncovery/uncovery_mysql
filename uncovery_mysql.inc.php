@@ -6,26 +6,31 @@
  */
 
 global $UNC_DB;
-$default_config = array(
-    'database' => 'default',
-    'username' => 'default',
-    'server' => 'localhost',
-    'password' => 'default',
+// configure your database here
+$default_config=array(
+    'database'  => 'default',
+    'username'  => 'default',
+    'server'  => 'localhost',
+    'password'  => 'default',
 );
 
-// let's set the
-foreach ($default_config as $type => $value) {
+// let's set the values in the global variable
+foreach ($default_config as $type  => $value) {
     if (!isset($UNC_DB[$type])) {
-        $UNC_DB[$type] = $value;
+        $UNC_DB[$type]=$value;
     }
 }
 
+// this is custom error reporting
+// see https://github.com/uncovery/xmpp_error for more info
+// if not available, will be ignored
+$UNC_DB['XMPP_ERROR'] = true;
 if (!function_exists('XMPP_ERROR_trace')) {
-    die('ERROR checking failed, install XMPP_ERROR!');
+    $UNC_DB['XMPP_ERROR'] = false;
 }
 
-// new way
-$UNC_DB['link'] = new PDO("mysql:host={$UNC_DB['server']};dbname={$UNC_DB['database']}", $UNC_DB['username'], $UNC_DB['password']);
+// make a connection to the database.
+$UNC_DB['link']=new PDO("mysql:host={$UNC_DB['server']};dbname={$UNC_DB['database']}", $UNC_DB['username'],$UNC_DB['password']);
 $UNC_DB['link']->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_WARNING);
 
 /**
@@ -39,13 +44,16 @@ $UNC_DB['link']->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_WARNING);
  * @param boolean $close
  * @return type
  */
-function umc_mysql_query($sql, $close = false) {
+function umc_mysql_query($sql, $close=false) {
     global $UNC_DB;
-    XMPP_ERROR_trace(__FUNCTION__, func_get_args());
-    $rst = $UNC_DB['link']->query($sql);
-    $error = $UNC_DB['link']->errorInfo();
-    if (!is_null($error[2])) {
+    if ($UNC_DB['XMPP_ERROR']) {XMPP_ERROR_trace(__FUNCTION__, func_get_args());}
+    $rst=$UNC_DB['link']->query($sql);
+    $error=$UNC_DB['link']->errorInfo();
+    if (!is_null($error[2]) && $UNC_DB['XMPP_ERROR']) {
         XMPP_ERROR_trigger("MySQL Query Error: '$sql' : " . $error[2]);
+        return false;
+    } if (!is_null($error[2])) {
+        error_log("MySQL Query Error: '$sql' : " . $error[2]);
         return false;
     } else if ($close) {
         $rst->closeCursor();
@@ -68,15 +76,18 @@ function umc_mysql_query($sql, $close = false) {
  */
 function umc_mysql_execute_query($sql) {
     global $UNC_DB;
-    XMPP_ERROR_trace(__FUNCTION__, func_get_args());
-    $obj = $UNC_DB['link']->prepare($sql);
+    if ($UNC_DB['XMPP_ERROR']) {XMPP_ERROR_trace(__FUNCTION__, func_get_args());}
+    $obj=$UNC_DB['link']->prepare($sql);
     $obj->execute();
-    $error = $obj->errorInfo();
-    if (!is_null($error[2])) {
+    $error=$obj->errorInfo();
+    if (!is_null($error[2]) && $UNC_DB['XMPP_ERROR']) {
         XMPP_ERROR_trigger("MySQL Query Error: '$sql' : " . $error[2]);
         return false;
+    } else if (!is_null($error[2]) ) {
+        error_log("MySQL Query Error: '$sql' : " . $error[2]);
+        return false;
     } else {
-        $count = $obj->rowCount();
+        $count=$obj->rowCount();
         return $count;
     }
 }
@@ -89,8 +100,8 @@ function umc_mysql_execute_query($sql) {
  * @param boolean $close
  * @return int
  */
-function umc_mysql_affected_rows($rst, $close = false) {
-    $rowCount = $rst->fetchColumn();
+function umc_mysql_affected_rows($rst, $close=false) {
+    $rowCount=$rst->fetchColumn();
     if ($close) {
         $rst->closeCursor();
     }
@@ -116,12 +127,16 @@ function umc_mysql_insert_id() {
  * @return type
  */
 function umc_mysql_fetch_array($rst) {
-    XMPP_ERROR_trace(__FUNCTION__, func_get_args());
-    if (!$rst) {
+    global $UNC_DB;
+    if ($UNC_DB['XMPP_ERROR']) {XMPP_ERROR_trace(__FUNCTION__, func_get_args());}
+    if (!$rst && $UNC_DB['XMPP_ERROR']) {
         XMPP_ERROR_trigger("tried fetch_array on erroneous recordset");
         return false;
+    } else if (!$rst) {
+        error_log("tried fetch_array on erroneous recordset");
+        return false;
     }
-    $row = $rst->fetch(PDO::FETCH_ASSOC);
+    $row=$rst->fetch(PDO::FETCH_ASSOC);
     return $row;
 }
 
@@ -149,15 +164,18 @@ function umc_mysql_real_escape_string($value) {
 
 function umc_mysql_fetch_all($sql) {
     global $UNC_DB;
-    XMPP_ERROR_trace(__FUNCTION__, func_get_args());
-    $stmt = $UNC_DB['link']->prepare($sql);
-    if (!$stmt) {
-        $error = $UNC_DB['link']->errorInfo();
+    if ($UNC_DB['XMPP_ERROR']) {XMPP_ERROR_trace(__FUNCTION__, func_get_args());}
+    $stmt=$UNC_DB['link']->prepare($sql);
+    if (!$stmt && $UNC_DB['XMPP_ERROR']) {
+        $error=$UNC_DB['link']->errorInfo();
         XMPP_ERROR_trigger($error);
+        return false;
+    } else if (!$stmt) {
+        error_log($UNC_DB['link']->errorInfo());
         return false;
     } else {
         $stmt->execute();
     }
-    $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $result=$stmt->fetchAll(PDO::FETCH_ASSOC);
     return $result;
 }
